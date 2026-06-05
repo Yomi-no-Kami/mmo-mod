@@ -59,6 +59,8 @@ namespace ScapeHeimModStub
             ScapeHeimContent.Init();
             Jotunn.Logger.LogInfo("[ScapeHeim]: Custom unity prefabs loaded...");
 
+            ShopDatabase.Load();
+            Jotunn.Logger.LogInfo("[ScapeHeim]: Custom shops loaded...");
             /**
              * IF ENABLED, press F8 nearby to view the names of prefabs/gameobjects
              */
@@ -75,7 +77,7 @@ namespace ScapeHeimModStub
         {
             if (Input.GetKeyDown(KeyCode.F10))
             {
-                ShopUI.Show();
+                ShopUI.OpenShop(0);
             }
         }
 

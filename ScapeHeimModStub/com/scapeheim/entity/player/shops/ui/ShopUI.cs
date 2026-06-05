@@ -22,6 +22,8 @@ namespace ScapeHeimModStub.com.scapeheim.entity.player.shops.ui
     {
         private static ShopUI Instance;
 
+        private Text titleText;
+
         private GameObject overlay;
         private GameObject panel;
 
@@ -111,7 +113,7 @@ namespace ScapeHeimModStub.com.scapeheim.entity.player.shops.ui
             closeButton.onClick.AddListener(() => Hide());
 
             // TITLE
-            GUIManager.Instance.CreateText(
+            GameObject titleObj = GUIManager.Instance.CreateText(
                 text: "Shop Name",
                 parent: panel.transform,
                 anchorMin: new Vector2(0f, 1f),
@@ -126,6 +128,8 @@ namespace ScapeHeimModStub.com.scapeheim.entity.player.shops.ui
                 height: 40f,
                 addContentSizeFitter: false
             );
+
+            titleText = titleObj.GetComponent<Text>();
 
             // BUY PANEL
             GameObject buyPanel = new GameObject("BuyPanel");
@@ -157,7 +161,7 @@ namespace ScapeHeimModStub.com.scapeheim.entity.player.shops.ui
             Image sellBg = sellPanel.AddComponent<Image>();
             sellBg.color = new Color(0.20f, 0.20f, 0.20f, 1f);
 
-            CreateSectionTitle("Sell", sellPanel.transform, new Vector2(0.52f, 0.88f), new Vector2(0.97f, 0.88f));
+            CreateSectionTitle("Sell", sellPanel.transform, new Vector2(0.03f, 0.88f), new Vector2(0.48f, 0.88f));
 
             sellContent = CreateScrollGrid("SellScroll", sellPanel.transform, 3);
         }
@@ -277,17 +281,25 @@ namespace ScapeHeimModStub.com.scapeheim.entity.player.shops.ui
             iconRt.anchoredPosition = new Vector2(6, 10);
             iconRt.sizeDelta = new Vector2(32, 32);
 
-            // NAME + PRICE SPLIT FIX
-            GameObject textObj = new GameObject("Text");
+            // TEXT CONTAINER (vertical stack)
+            GameObject textObj = new GameObject("TextContainer");
             textObj.transform.SetParent(card.transform, false);
 
-            RectTransform tr = textObj.AddComponent<RectTransform>();
-            tr.anchorMin = new Vector2(0, 0);
-            tr.anchorMax = new Vector2(1, 1);
-            tr.offsetMin = new Vector2(45, 10);
-            tr.offsetMax = new Vector2(-5, 25);
+            RectTransform textRt = textObj.AddComponent<RectTransform>();
+            textRt.anchorMin = new Vector2(0, 0);
+            textRt.anchorMax = new Vector2(1, 1);
+            textRt.offsetMin = new Vector2(45, 8);
+            textRt.offsetMax = new Vector2(-5, -5);
 
-            // NAME (WHITE)
+            VerticalLayoutGroup layout = textObj.AddComponent<VerticalLayoutGroup>();
+            layout.childAlignment = TextAnchor.UpperLeft;
+            layout.spacing = 2;
+            layout.childControlHeight = true;
+            layout.childControlWidth = true;
+            layout.childForceExpandHeight = false;
+            layout.childForceExpandWidth = true;
+
+            // NAME
             GameObject nameObj = new GameObject("Name");
             nameObj.transform.SetParent(textObj.transform, false);
 
@@ -296,15 +308,12 @@ namespace ScapeHeimModStub.com.scapeheim.entity.player.shops.ui
             nameText.font = GUIManager.Instance.AveriaSerifBold;
             nameText.fontSize = 13;
             nameText.color = Color.white;
-            nameText.alignment = TextAnchor.UpperLeft;
+            nameText.alignment = TextAnchor.MiddleLeft;
 
-            RectTransform nt = nameObj.GetComponent<RectTransform>();
-            nt.anchorMin = new Vector2(0, 0.5f);
-            nt.anchorMax = new Vector2(1, 1);
-            nt.offsetMin = Vector2.zero;
-            nt.offsetMax = Vector2.zero;
+            LayoutElement nameLayout = nameObj.AddComponent<LayoutElement>();
+            nameLayout.preferredHeight = 18;
 
-            // PRICE (YELLOW ONLY)
+            // PRICE
             GameObject priceObj = new GameObject("Price");
             priceObj.transform.SetParent(textObj.transform, false);
 
@@ -313,13 +322,10 @@ namespace ScapeHeimModStub.com.scapeheim.entity.player.shops.ui
             priceText.font = GUIManager.Instance.AveriaSerifBold;
             priceText.fontSize = 12;
             priceText.color = new Color(1f, 0.85f, 0.2f);
-            priceText.alignment = TextAnchor.LowerLeft;
+            priceText.alignment = TextAnchor.MiddleLeft;
 
-            RectTransform pt = priceObj.GetComponent<RectTransform>();
-            pt.anchorMin = new Vector2(0, 0);
-            pt.anchorMax = new Vector2(1, 0.5f);
-            pt.offsetMin = Vector2.zero;
-            pt.offsetMax = Vector2.zero;
+            LayoutElement priceLayout = priceObj.AddComponent<LayoutElement>();
+            priceLayout.preferredHeight = 16;
 
             // BUTTON
             GameObject btnObj = new GameObject("BuyButton");
@@ -360,25 +366,54 @@ namespace ScapeHeimModStub.com.scapeheim.entity.player.shops.ui
 
             return card;
         }
-
-        public static void Show()
+        public static void OpenShop(int shopId)
         {
             if (Instance == null)
                 Init();
 
-            Instance.overlay.SetActive(true);
+            Instance.ShowShop(shopId);
+        }
+
+        public void ShowShop(int shopId)
+        {
+            Debug.Log($"[ShopUI] shopId = {shopId}");
+            var shop = ShopDatabase.GetShop(shopId);
+            Debug.Log($"[ShopUI] shop null? {shop == null}");
+
+            if (shop == null)
+            {
+                Debug.LogWarning($"[ShopUI] Shop {shopId} not found");
+                return;
+            }
+
+            overlay.SetActive(true);
             GUIManager.BlockInput(true);
 
-            var items = new ShopItem[]
-            {
-                new ShopItem("Wood", "Wood", 2),
-                new ShopItem("Stone", "Stone", 3),
-                new ShopItem("Copper", "CopperOre", 30),
-                new ShopItem("Iron Ore", "IronOre", 75)
-            };
+            titleText.text = shop.name;
 
-            foreach (var item in items)
-                Instance.CreateItemCard(Instance.buyContent.transform, item);
+            Clear(buyContent.transform);
+            Clear(sellContent.transform);
+
+            foreach (var stock in shop.stock)
+            {
+                int price = ShopDatabase.GetBuyValue(stock.itemName);
+
+                var item = new ShopItem(stock.itemName, stock.itemName, price);
+                CreateItemCard(buyContent.transform, item);
+                Debug.Log($"[ShopUI] stock count = {shop.stock.Count}");
+            }
+
+            sellContent.SetActive(shop.canSell);
+        }
+
+        private void Clear(Transform t)
+        {
+            if (t == null) return;
+
+            for (int i = t.childCount - 1; i >= 0; i--)
+            {
+                Destroy(t.GetChild(i).gameObject);
+            }
         }
 
         public static void Hide()

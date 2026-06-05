@@ -13,7 +13,7 @@ public class GeneralStoreShopkeeper : MonoBehaviour, Hoverable, Interactable
     public bool Interact(Humanoid user, bool hold, bool alt)
     {
         if (hold) return false;
-
+        ShopUI.OpenShop(0);
         return true;
     }
 
